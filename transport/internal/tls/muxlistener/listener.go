@@ -180,7 +180,7 @@ func (l *listener) mux(ctx context.Context, conn net.Conn) (net.Conn, error) {
 		return l.handleTLSConn(ctx, conn)
 	}
 
-	c := newConnectionSniffer(conn)
+	c := newConnectionSniffer(conn, l.logger)
 	isTLS, err := matchTLSConnection(c)
 	if err != nil {
 		l.logger.Error("TLS connection matcher failed", zap.Error(err), zap.Any("sniffer", c))
@@ -203,7 +203,7 @@ func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn) (net.Conn, 
 	tlsConn := tls.Server(conn, l.tlsConfig)
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		l.observer.IncTLSHandshakeFailures()
-		l.logger.Error("TLS handshake failed", zap.Error(err), zap.Any("tlsConn", tlsConn))
+		l.logger.Error("TLS handshake failed", zap.Error(err), zap.Any("tlsConnState", tlsConn.ConnectionState()))
 		return nil, err
 	}
 

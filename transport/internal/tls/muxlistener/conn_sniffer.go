@@ -23,12 +23,17 @@ package muxlistener
 import (
 	"bytes"
 	"net"
+
+	"go.uber.org/zap"
 )
 
 // connSniffer wraps the connection and enables muxlistener to sniff inital bytes from the
 // connection efficiently.
 type connSniffer struct {
 	net.Conn
+
+	logger  *zap.Logger
+	counter int
 
 	// set to true when sniffing mode is disabled.
 	disableSniffing bool
@@ -37,8 +42,8 @@ type connSniffer struct {
 	buf bytes.Buffer
 }
 
-func newConnectionSniffer(conn net.Conn) *connSniffer {
-	return &connSniffer{Conn: conn}
+func newConnectionSniffer(conn net.Conn, l *zap.Logger) *connSniffer {
+	return &connSniffer{Conn: conn, logger: l}
 }
 
 // Read returns bytes read from the underlying connection. When sniffing is
@@ -48,7 +53,10 @@ func newConnectionSniffer(conn net.Conn) *connSniffer {
 func (c *connSniffer) Read(b []byte) (int, error) {
 	if c.disableSniffing && c.buf.Len() != 0 {
 		// Read from the buffer when sniffing is disabled and buffer is not empty.
-		n, _ := c.buf.Read(b)
+		n, err := c.buf.Read(b)
+		if err != nil {
+			c.logger.Error("error from reading sniffing buffer", zap.Error(err))
+		}
 		if c.buf.Len() == 0 {
 			// Release memory as we don't need buffer anymore.
 			c.buf = bytes.Buffer{}
@@ -63,6 +71,13 @@ func (c *connSniffer) Read(b []byte) (int, error) {
 
 	// Store in buffer when sniffing.
 	if !c.disableSniffing {
+		c.logger.Info(
+			"Sniffed some data",
+			zap.Int("counter", c.counter),
+			zap.Int("readSize", n),
+			zap.ByteString("sniffedData", b[:n]),
+		)
+		c.counter++
 		c.buf.Write(b[:n])
 	}
 	return n, nil

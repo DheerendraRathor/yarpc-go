@@ -32,8 +32,10 @@ import (
 type connSniffer struct {
 	net.Conn
 
-	logger  *zap.Logger
-	counter int
+	logger   *zap.Logger
+	counter  int
+	readData bytes.Buffer
+	stopRead bool
 
 	// set to true when sniffing mode is disabled.
 	disableSniffing bool
@@ -43,7 +45,7 @@ type connSniffer struct {
 }
 
 func newConnectionSniffer(conn net.Conn, l *zap.Logger) *connSniffer {
-	return &connSniffer{Conn: conn, logger: l}
+	return &connSniffer{Conn: conn, logger: l, readData: bytes.Buffer{}}
 }
 
 // Read returns bytes read from the underlying connection. When sniffing is
@@ -65,10 +67,13 @@ func (c *connSniffer) Read(b []byte) (int, error) {
 	}
 
 	n, err := c.Conn.Read(b)
-	if err != nil {
+	if !c.stopRead {
+		c.readData.Write(b[:n])
+	}
+	if !c.stopRead && err != nil {
 		c.logger.Error(
 			"error in reading data from connection",
-			zap.Binary("readData", b[:n]),
+			zap.Binary("readData", c.readData.Bytes()),
 			zap.Int("readSize", n),
 			zap.Int("counterVal", c.counter),
 			zap.Error(err),
@@ -92,4 +97,10 @@ func (c *connSniffer) Read(b []byte) (int, error) {
 
 func (c *connSniffer) stopSniffing() {
 	c.disableSniffing = true
+}
+
+func (c *connSniffer) stopReading() {
+	c.stopRead = true
+	// release memory
+	c.readData = bytes.Buffer{}
 }

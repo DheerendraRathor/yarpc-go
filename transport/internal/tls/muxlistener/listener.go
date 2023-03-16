@@ -181,6 +181,7 @@ func (l *listener) mux(ctx context.Context, conn net.Conn) (net.Conn, error) {
 	}
 
 	c := newConnectionSniffer(conn, l.logger)
+	defer c.stopReading()
 	isTLS, err := matchTLSConnection(c)
 	if err != nil {
 		l.logger.Error("TLS connection matcher failed", zap.Error(err), zap.Any("sniffer", c))

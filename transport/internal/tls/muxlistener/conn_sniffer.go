@@ -70,14 +70,16 @@ func (c *connSniffer) Read(b []byte) (int, error) {
 	if !c.stopRead {
 		c.readData.Write(b[:n])
 	}
-	if !c.stopRead && err != nil {
-		c.logger.Error(
-			"error in reading data from connection",
-			zap.Binary("readData", c.readData.Bytes()),
-			zap.Int("readSize", n),
-			zap.Int("counterVal", c.counter),
-			zap.Error(err),
-		)
+	if err != nil {
+		if !c.stopRead {
+			c.logger.Error(
+				"error in reading data from connection",
+				zap.Binary("readData", c.readData.Bytes()),
+				zap.Int("readSize", n),
+				zap.Int("counterVal", c.counter),
+				zap.Error(err),
+			)
+		}
 		return n, err
 	}
 

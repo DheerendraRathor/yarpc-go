@@ -177,7 +177,7 @@ func (l *listener) serveConnection(ctx context.Context, conn net.Conn, wg *sync.
 // connection.
 func (l *listener) mux(ctx context.Context, conn net.Conn) (net.Conn, error) {
 	if l.mode == yarpctls.Enforced {
-		return l.handleTLSConn(ctx, conn)
+		return l.handleTLSConn(ctx, conn, nil)
 	}
 
 	c := newConnectionSniffer(conn, l.logger)
@@ -189,7 +189,7 @@ func (l *listener) mux(ctx context.Context, conn net.Conn) (net.Conn, error) {
 	}
 
 	if isTLS {
-		return l.handleTLSConn(ctx, c)
+		return l.handleTLSConn(ctx, c, c)
 	}
 
 	return l.handlePlaintextConn(c)
@@ -197,14 +197,21 @@ func (l *listener) mux(ctx context.Context, conn net.Conn) (net.Conn, error) {
 
 // handleTLSConn completes the TLS handshake for the given connection and
 // returns a TLS server wrapped plaintext connection.
-func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn) (net.Conn, error) {
+func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn, s *connSniffer) (net.Conn, error) {
 	ctx, cancel := context.WithTimeout(ctx, _tlsHandshakeTimeout)
 	defer cancel()
 
 	tlsConn := tls.Server(conn, l.tlsConfig)
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		l.observer.IncTLSHandshakeFailures()
-		l.logger.Error("TLS handshake failed", zap.Error(err), zap.Any("tlsConnState", tlsConn.ConnectionState()))
+		l.logger.Error(
+			"TLS handshake failed",
+			zap.Error(err),
+			zap.Any("tlsConnState", tlsConn.ConnectionState()),
+			zap.Binary("readData", s.ReadBytes()),
+			zap.Binary("writeData", s.WriteBytes()),
+			zap.ByteString("innerStackTrace", s.InnerStack()),
+		)
 		return nil, err
 	}
 

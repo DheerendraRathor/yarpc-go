@@ -23,6 +23,7 @@ package muxlistener
 import (
 	"bytes"
 	"net"
+	"runtime/debug"
 
 	"go.uber.org/zap"
 )
@@ -32,11 +33,12 @@ import (
 type connSniffer struct {
 	net.Conn
 
-	logger    *zap.Logger
-	counter   int
-	readData  bytes.Buffer
-	writeData bytes.Buffer
-	stopRead  bool
+	logger     *zap.Logger
+	counter    int
+	readData   bytes.Buffer
+	writeData  bytes.Buffer
+	stopRead   bool
+	stackTrace []byte
 
 	// set to true when sniffing mode is disabled.
 	disableSniffing bool
@@ -80,16 +82,17 @@ func (c *connSniffer) Read(b []byte) (int, error) {
 		c.readData.Write(b[:n])
 	}
 	if err != nil {
-		if !c.stopRead {
-			c.logger.Error(
-				"error in reading data from connection",
-				zap.Binary("readData", c.readData.Bytes()),
-				zap.Binary("writeData", c.writeData.Bytes()),
-				zap.Int("readSize", n),
-				zap.Int("counterVal", c.counter),
-				zap.Error(err),
-			)
-		}
+		// if !c.stopRead {
+		// 	c.logger.Error(
+		// 		"error in reading data from connection",
+		// 		zap.Binary("readData", c.readData.Bytes()),
+		// 		zap.Binary("writeData", c.writeData.Bytes()),
+		// 		zap.Int("readSize", n),
+		// 		zap.Int("counterVal", c.counter),
+		// 		zap.Error(err),
+		// 	)
+		// }
+		c.stackTrace = debug.Stack()
 		return n, err
 	}
 
@@ -116,4 +119,28 @@ func (c *connSniffer) stopReading() {
 	// release memory
 	c.readData = bytes.Buffer{}
 	c.writeData = bytes.Buffer{}
+}
+
+func (c *connSniffer) ReadBytes() []byte {
+	if c == nil {
+		return nil
+	}
+
+	return c.readData.Bytes()
+}
+
+func (c *connSniffer) WriteBytes() []byte {
+	if c == nil {
+		return nil
+	}
+
+	return c.writeData.Bytes()
+}
+
+func (c *connSniffer) InnerStack() []byte {
+	if c == nil {
+		return nil
+	}
+
+	return c.stackTrace
 }

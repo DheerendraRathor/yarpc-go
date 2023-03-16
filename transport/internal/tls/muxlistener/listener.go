@@ -78,9 +78,11 @@ func NewListener(c Config) net.Listener {
 		return c.Listener
 	}
 
+	logger := c.Logger.With(zap.String("transportName", c.TransportName))
+
 	observer := tlsmetrics.NewObserver(tlsmetrics.Params{
 		Meter:         c.Meter,
-		Logger:        c.Logger,
+		Logger:        logger,
 		ServiceName:   c.ServiceName,
 		TransportName: c.TransportName,
 		Mode:          c.Mode,
@@ -91,7 +93,7 @@ func NewListener(c Config) net.Listener {
 		Listener:    c.Listener,
 		tlsConfig:   c.TLSConfig,
 		observer:    observer,
-		logger:      c.Logger,
+		logger:      logger,
 		connChan:    make(chan net.Conn),
 		stoppedChan: make(chan struct{}),
 		stopChan:    make(chan struct{}),
@@ -181,7 +183,7 @@ func (l *listener) mux(ctx context.Context, conn net.Conn) (net.Conn, error) {
 	c := newConnectionSniffer(conn)
 	isTLS, err := matchTLSConnection(c)
 	if err != nil {
-		l.logger.Error("TLS connection matcher failed", zap.Error(err))
+		l.logger.Error("TLS connection matcher failed", zap.Error(err), zap.Any("sniffer", c))
 		return nil, err
 	}
 
@@ -201,7 +203,7 @@ func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn) (net.Conn, 
 	tlsConn := tls.Server(conn, l.tlsConfig)
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		l.observer.IncTLSHandshakeFailures()
-		l.logger.Error("TLS handshake failed", zap.Error(err))
+		l.logger.Error("TLS handshake failed", zap.Error(err), zap.Any("tlsConn", tlsConn))
 		return nil, err
 	}
 

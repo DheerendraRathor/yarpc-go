@@ -202,19 +202,21 @@ func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn, s *connSnif
 	ctx, cancel := context.WithTimeout(ctx, _tlsHandshakeTimeout)
 	defer cancel()
 
+	remoteAddr := conn.RemoteAddr()
+	remoteAddrStr := ""
+	host := ""
+	if remoteAddr != nil {
+		remoteAddrStr = remoteAddr.String()
+		colon := strings.Index(remoteAddrStr, ":")
+		if colon != -1 {
+			host = remoteAddrStr[:colon]
+		}
+	}
+
 	tlsConn := tls.Server(conn, l.tlsConfig)
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		l.observer.IncTLSHandshakeFailures()
-		remoteAddr := conn.RemoteAddr()
-		remoteAddrStr := ""
-		host := ""
-		if remoteAddr != nil {
-			remoteAddrStr = remoteAddr.String()
-			colon := strings.Index(remoteAddrStr, ":")
-			if colon != -1 {
-				host = remoteAddrStr[:colon]
-			}
-		}
+
 		l.logger.Error(
 			"TLS handshake failed",
 			zap.Error(err),
@@ -232,6 +234,16 @@ func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn, s *connSnif
 		)
 		return nil, err
 	}
+
+	l.logger.Info(
+		"TLS connection successful",
+		zap.Namespace("tlsData"),
+		zap.Any("tlsConnState", tlsConn.ConnectionState()),
+		zap.Any("remoteAddr", remoteAddrStr),
+		zap.Any("remoteHost", host),
+		zap.Binary("readData", s.ReadBytes()),
+		zap.Binary("writeData", s.WriteBytes()),
+	)
 
 	l.observer.IncTLSConnections(tlsConn.ConnectionState().Version)
 	return tlsConn, nil

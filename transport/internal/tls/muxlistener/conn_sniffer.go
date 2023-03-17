@@ -34,13 +34,16 @@ import (
 type connSniffer struct {
 	net.Conn
 
-	logger      *zap.Logger
-	counter     int
-	readData    bytes.Buffer
-	writeData   bytes.Buffer
-	lastWriteTs time.Time
-	stopRead    bool
-	stackTrace  []byte
+	logger           *zap.Logger
+	counter          int
+	readData         bytes.Buffer
+	writeData        bytes.Buffer
+	lastReadStartAt  time.Time
+	lastReadEndAt    time.Time
+	lastWriteStartAt time.Time
+	lastWriteEndAt   time.Time
+	stopRead         bool
+	stackTrace       []byte
 
 	// set to true when sniffing mode is disabled.
 	disableSniffing bool
@@ -54,11 +57,14 @@ func newConnectionSniffer(conn net.Conn, l *zap.Logger) *connSniffer {
 }
 
 func (c *connSniffer) Write(b []byte) (int, error) {
+	c.lastWriteStartAt = time.Now()
+	defer func() {
+		c.lastWriteEndAt = time.Now()
+	}()
 	n, err := c.Conn.Write(b)
 	if !c.stopRead {
 		c.writeData.Write(b[:n])
 	}
-	c.lastWriteTs = time.Now()
 	return n, err
 }
 
@@ -67,6 +73,11 @@ func (c *connSniffer) Write(b []byte) (int, error) {
 // mode is disabled, data is first read from the buffer and once the buffer is
 // empty the underlying connection is read.
 func (c *connSniffer) Read(b []byte) (int, error) {
+	c.lastReadStartAt = time.Now()
+	defer func() {
+		c.lastReadEndAt = time.Now()
+	}()
+
 	if c.disableSniffing && c.buf.Len() != 0 {
 		// Read from the buffer when sniffing is disabled and buffer is not empty.
 		n, err := c.buf.Read(b)

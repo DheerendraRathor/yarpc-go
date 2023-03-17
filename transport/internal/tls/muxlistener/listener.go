@@ -25,6 +25,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -206,18 +207,27 @@ func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn, s *connSnif
 		l.observer.IncTLSHandshakeFailures()
 		remoteAddr := conn.RemoteAddr()
 		remoteAddrStr := ""
+		host := ""
 		if remoteAddr != nil {
 			remoteAddrStr = remoteAddr.String()
+			colon := strings.Index(remoteAddrStr, ":")
+			if colon != -1 {
+				host = remoteAddrStr[:colon]
+			}
 		}
 		l.logger.Error(
 			"TLS handshake failed",
 			zap.Error(err),
 			zap.Namespace("tlsData"),
 			zap.Any("remoteAddr", remoteAddrStr),
+			zap.Any("remoteHost", host),
 			zap.Any("tlsConnState", tlsConn.ConnectionState()),
 			zap.Binary("readData", s.ReadBytes()),
 			zap.Binary("writeData", s.WriteBytes()),
-			zap.Time("lastWriteAt", s.lastWriteTs),
+			zap.Time("lastReadStartAt", s.lastReadStartAt),
+			zap.Time("lastReadEndAt", s.lastReadEndAt),
+			zap.Time("lastWriteStartAt", s.lastWriteStartAt),
+			zap.Time("lastWriteEndAt", s.lastWriteEndAt),
 			zap.ByteString("innerStackTrace", s.InnerStack()),
 		)
 		return nil, err

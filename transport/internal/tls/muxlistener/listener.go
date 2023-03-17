@@ -177,7 +177,7 @@ func (l *listener) serveConnection(ctx context.Context, conn net.Conn, wg *sync.
 // connection.
 func (l *listener) mux(ctx context.Context, conn net.Conn) (net.Conn, error) {
 	if l.mode == yarpctls.Enforced {
-		return l.handleTLSConn(ctx, conn, nil)
+		return l.handleTLSConn(ctx, conn, &connSniffer{})
 	}
 
 	c := newConnectionSniffer(conn, l.logger)
@@ -204,12 +204,20 @@ func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn, s *connSnif
 	tlsConn := tls.Server(conn, l.tlsConfig)
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		l.observer.IncTLSHandshakeFailures()
+		remoteAddr := conn.RemoteAddr()
+		remoteAddrStr := ""
+		if remoteAddr != nil {
+			remoteAddrStr = remoteAddr.String()
+		}
 		l.logger.Error(
 			"TLS handshake failed",
 			zap.Error(err),
+			zap.Namespace("tlsData"),
+			zap.Any("remoteAddr", remoteAddrStr),
 			zap.Any("tlsConnState", tlsConn.ConnectionState()),
 			zap.Binary("readData", s.ReadBytes()),
 			zap.Binary("writeData", s.WriteBytes()),
+			zap.Time("lastWriteAt", s.lastWriteTs),
 			zap.ByteString("innerStackTrace", s.InnerStack()),
 		)
 		return nil, err

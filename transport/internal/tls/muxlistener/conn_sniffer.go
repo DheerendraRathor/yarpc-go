@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"net"
 	"runtime/debug"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -33,12 +34,13 @@ import (
 type connSniffer struct {
 	net.Conn
 
-	logger     *zap.Logger
-	counter    int
-	readData   bytes.Buffer
-	writeData  bytes.Buffer
-	stopRead   bool
-	stackTrace []byte
+	logger      *zap.Logger
+	counter     int
+	readData    bytes.Buffer
+	writeData   bytes.Buffer
+	lastWriteTs time.Time
+	stopRead    bool
+	stackTrace  []byte
 
 	// set to true when sniffing mode is disabled.
 	disableSniffing bool
@@ -56,6 +58,7 @@ func (c *connSniffer) Write(b []byte) (int, error) {
 	if !c.stopRead {
 		c.writeData.Write(b[:n])
 	}
+	c.lastWriteTs = time.Now()
 	return n, err
 }
 

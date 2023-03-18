@@ -220,12 +220,14 @@ func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn, s *connSnif
 		l.logger.Error(
 			"TLS handshake failed",
 			zap.Error(err),
+			zap.Any("tlsConnState", tlsConn.ConnectionState()),
 			zap.Namespace("tlsData"),
 			zap.Any("remoteAddr", remoteAddrStr),
 			zap.Any("remoteHost", host),
-			zap.Any("tlsConnState", tlsConn.ConnectionState()),
 			zap.Binary("readData", s.ReadBytes()),
 			zap.Binary("writeData", s.WriteBytes()),
+			zap.Time("firstReadAt", s.firstReadAt),
+			zap.Time("firstWriteAt", s.firstWriteAt),
 			zap.Time("lastReadStartAt", s.lastReadStartAt),
 			zap.Time("lastReadEndAt", s.lastReadEndAt),
 			zap.Time("lastWriteStartAt", s.lastWriteStartAt),
@@ -237,12 +239,14 @@ func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn, s *connSnif
 
 	l.logger.Info(
 		"TLS connection successful",
-		zap.Namespace("tlsData"),
 		zap.Any("tlsConnState", tlsConn.ConnectionState()),
+		zap.Namespace("tlsData"),
 		zap.Any("remoteAddr", remoteAddrStr),
 		zap.Any("remoteHost", host),
 		zap.Binary("readData", s.ReadBytes()),
 		zap.Binary("writeData", s.WriteBytes()),
+		zap.Time("firstReadAt", s.firstReadAt),
+		zap.Time("firstWriteAt", s.firstWriteAt),
 	)
 
 	l.observer.IncTLSConnections(tlsConn.ConnectionState().Version)

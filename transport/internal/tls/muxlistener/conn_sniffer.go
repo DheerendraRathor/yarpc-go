@@ -38,6 +38,8 @@ type connSniffer struct {
 	counter          int
 	readData         bytes.Buffer
 	writeData        bytes.Buffer
+	firstReadAt      time.Time
+	firstWriteAt     time.Time
 	lastReadStartAt  time.Time
 	lastReadEndAt    time.Time
 	lastWriteStartAt time.Time
@@ -57,6 +59,10 @@ func newConnectionSniffer(conn net.Conn, l *zap.Logger) *connSniffer {
 }
 
 func (c *connSniffer) Write(b []byte) (int, error) {
+	if (c.firstWriteAt == time.Time{}) {
+		c.firstWriteAt = time.Now()
+	}
+
 	c.lastWriteStartAt = time.Now()
 	defer func() {
 		c.lastWriteEndAt = time.Now()
@@ -73,6 +79,10 @@ func (c *connSniffer) Write(b []byte) (int, error) {
 // mode is disabled, data is first read from the buffer and once the buffer is
 // empty the underlying connection is read.
 func (c *connSniffer) Read(b []byte) (int, error) {
+	if (c.firstReadAt == time.Time{}) {
+		c.firstReadAt = time.Now()
+	}
+
 	c.lastReadStartAt = time.Now()
 	defer func() {
 		c.lastReadEndAt = time.Now()

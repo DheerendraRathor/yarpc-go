@@ -106,16 +106,6 @@ func (c *connSniffer) Read(b []byte) (int, error) {
 		c.readData.Write(b[:n])
 	}
 	if err != nil {
-		// if !c.stopRead {
-		// 	c.logger.Error(
-		// 		"error in reading data from connection",
-		// 		zap.Binary("readData", c.readData.Bytes()),
-		// 		zap.Binary("writeData", c.writeData.Bytes()),
-		// 		zap.Int("readSize", n),
-		// 		zap.Int("counterVal", c.counter),
-		// 		zap.Error(err),
-		// 	)
-		// }
 		c.stackTrace = debug.Stack()
 		return n, err
 	}

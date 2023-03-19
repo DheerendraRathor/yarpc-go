@@ -247,6 +247,10 @@ func (l *listener) handleTLSConn(ctx context.Context, conn net.Conn, s *connSnif
 		zap.Binary("writeData", s.WriteBytes()),
 		zap.Time("firstReadAt", s.firstReadAt),
 		zap.Time("firstWriteAt", s.firstWriteAt),
+		zap.Time("lastReadStartAt", s.lastReadStartAt),
+		zap.Time("lastReadEndAt", s.lastReadEndAt),
+		zap.Time("lastWriteStartAt", s.lastWriteStartAt),
+		zap.Time("lastWriteEndAt", s.lastWriteEndAt),
 	)
 
 	l.observer.IncTLSConnections(tlsConn.ConnectionState().Version)
